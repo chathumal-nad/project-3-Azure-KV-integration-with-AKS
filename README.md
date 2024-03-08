@@ -3,13 +3,24 @@
 
 This project outlines the process of integrating Azure Key Vault with an AKS (Azure Kubernetes Service) cluster using the Azure Key Vault Provider for Secrets Store CSI Driver.
 
+**Table of Contents**
+- [Integrating Azure Key-Vault with AKS using Azure Key Vault provider for Secrets Store CSI Driver](#integrating-azure-key-vault-with-aks-using-azure-key-vault-provider-for-secrets-store-csi-driver)
+  - [AKS Creation and Configuration](#aks-creation-and-configuration)
+  - [Azure Key Vault creation](#azure-key-vault-creation)
+  - [Granting access to managed identity.](#granting-access-to-managed-identity)
+  - [Setup Federation](#setup-federation)
+  - [Create the Secret Provider Class](#create-the-secret-provider-class)
+  - [Verifying Key-vault AKS integration](#verifying-key-vault-aks-integration)
+  - [Clean up the resources](#clean-up-the-resources)
+  - [References](#references)
+
 
 ## AKS Creation and Configuration
 
 > Please note that all the following commands are designed for the Bash shell.
 
 
-First we need to provide the followign environemant  variables since they will be used in several occasions. 
+First we need to provide the following environemant  variables since they will be used in several occasions. 
 
 
 ```
@@ -18,6 +29,8 @@ CLUSTER_NAME="demo-cluster"
 KEY_VAULT_NAME="demo-key-vault-name"
 SUBSCRIPTION_ID=$(az account show --query id --output tsv)
 ```
+
+> Vault name should be globally unique.
 
 Begin by creating an Azure resource group, which will organize the resources generated throughout this project. Adding a "owner=az-cli" tag helps identify resources created via the CLI.
 
@@ -62,7 +75,7 @@ kubectl get pods -A
 Use the following command to create an Azure Key vault.
 
 ```sh
-az keyvault create -n $KEY_VAULT_NAME -g $RESOURCE_GROUP -l eastus --enable-rbac-authorization
+az keyvault create -n $KEY_VAULT_NAME -g $RESOURCE_GROUP -l eastus
 ```
 
 Create a sample secret.
@@ -99,6 +112,23 @@ Then select **Access policies**, and create an access policy. Select `get` and `
 
 ![alt text](image-1.png)
 
+To do this process using CLI,
+
+Acquire the object-id of the managed-identity
+
+```
+OBJECT_ID=$(az identity show --resource-group  $RESOURCE_GROUP  --name $IDENTITY_NAME --query principalId --output tsv)
+```
+
+Set the key-vault access-policy
+
+```
+az keyvault set-policy --name $KEY_VAULT_NAME --secret-permissions get list -g $RESOURCE_GROUP --object-id $OBJECT_ID
+```
+
+You can verify from the portal,
+
+![alt text](image-2.png)
 
 
  ## Setup Federation
@@ -156,6 +186,11 @@ az identity federated-credential create --name $FEDERATED_IDENTITY_NAME --identi
 
 ```
 
+Verify using the portal. Go to **Managed Identities** -> Select the identity -> **Federated credentials**
+
+![alt text](image-3.png)
+
+
 ## Create the Secret Provider Class
 
 ```
@@ -189,7 +224,8 @@ EOF
 
 Now a sampel pod should be created to mount the secrets.
 
-```yaml
+```
+cat <<EOF | kubectl apply -f -
 kind: Pod
 apiVersion: v1
 metadata:
@@ -216,6 +252,7 @@ spec:
         readOnly: true
         volumeAttributes:
           secretProviderClass: "azure-kvname-wi"
+EOF
 ```
 
 Now the secret will be mounted the location specified in 'mountpath'.
@@ -244,5 +281,5 @@ az group delete -n $RESOURCE_GROUP --no-wait
 ## References
 
 - [AZ CLI documentation](https://learn.microsoft.com/en-us/cli/azure/reference-index?view=azure-cli-latest)
-- [Azure links with integration]()
-- [Abishek weeramalla utube tutorial](https://www.youtube.com/watch?v=MJ97ZInCXgY&list=PLdpzxOOAlwvIcxgCUyBHVOcWs0Krjx9xR&index=21&pp=iAQB)
+- [Azure official documentation to implement CSI secrets store driver](https://learn.microsoft.com/en-us/azure/aks/csi-secrets-store-driver)
+- [Abishek Weeramalla - YouTube tutorial](https://www.youtube.com/watch?v=MJ97ZInCXgY&list=PLdpzxOOAlwvIcxgCUyBHVOcWs0Krjx9xR&index=21&pp=iAQB)
