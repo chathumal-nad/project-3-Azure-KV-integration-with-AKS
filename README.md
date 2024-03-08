@@ -20,32 +20,32 @@ This project outlines the process of integrating Azure Key Vault with an AKS (Az
 > Please note that all the following commands are designed for the Bash shell.
 
 
-First we need to provide the following environemant  variables since they will be used in several occasions. 
+First, we need to provide the following environmant variables since they will be used on several occasions. 
 
 
 ```
-RESOURCE_GROUP="demo-resource-group"
-CLUSTER_NAME="demo-cluster"
+RESOURCE_GROUP="kv-test"
+CLUSTER_NAME="kv-test"
 KEY_VAULT_NAME="demo-key-vault-name"
 SUBSCRIPTION_ID=$(az account show --query id --output tsv)
 ```
 
 > Vault name should be globally unique.
 
-Begin by creating an Azure resource group, which will organize the resources generated throughout this project. Adding a "owner=az-cli" tag helps identify resources created via the CLI.
+Begin by creating an Azure resource group, which will organize the resources generated throughout this project.
 
 ```
-az group create -l eastus -n $RESOURCE_GROUP --tags "owner=az-cli"
+az group create -l eastus -n $RESOURCE_GROUP"
 ```
 
-Then we need to create an Azure Kubernetes Cluster with following specs.
+Then we need to create an Azure Kubernetes Cluster with the following specs.
 
 - Free tier
 - OIDC issuer should be enabled
 - Azure Key Vault secret provider add-on should be enabled
 - Work load identity should be enabled 
 
-I have utilzed the cluster creation to keep a very lowe cluster cost, so there may be additional arguments provided here. More details can be found from the official aks clustre creation [command](https://learn.microsoft.com/en-us/cli/azure/aks?view=azure-cli-latest#az-aks-create).
+I have utilized the cluster creation to keep a very low cluster cost, so there may be additional arguments provided here. More details can be found from the official aks clustre creation [command](https://learn.microsoft.com/en-us/cli/azure/aks?view=azure-cli-latest#az-aks-create). Adding a "owner=az-cli" tag helps identify resources created via the CLI.
 
 ```
 az aks create --name $CLUSTER_NAME -g $RESOURCE_GROUP  --tier free --node-count 1 --node-vm-size Standard_B2s --enable-oidc-issuer  --network-plugin azure --load-balancer-sku basic --node-osdisk-size 30  --tags "owner=az-cli" --no-wait --enable-addons azure-keyvault-secrets-provider  --enable-workload-identity 
@@ -89,9 +89,9 @@ az keyvault secret set --name sample-secret --vault-name $KEY_VAULT_NAME --value
 
 ## Granting access to managed identity.
 
-When we create an AKS, the AKS related components are created under a **separate resource group** and managed identities will be created automatically with the names `azurekeyvaultsecretsprovider-<cluster name>` and `<cluster name>-agentpool`. This is not the resource group refledcted by `$RESOURCE_GROUP`.
+When we create an AKS, the AKS-related components are created under a **separate resource group** and managed identities will be created automatically with the names `azurekeyvaultsecretsprovider-<cluster name>` and `<cluster name>-agentpool`. This is not the resource group reflected by `$RESOURCE_GROUP`.
 
-We can create a separate managed idenity without using the automatically created one.
+We can create a separate managed identity without using the automatically created one.
 
 ```
 IDENTITY_NAME="azurekeyvaultsecretsprovider-$CLUSTER_NAME"
@@ -100,14 +100,15 @@ az identity create --name $IDENTITY_NAME --resource-group $RESOURCE_GROUP
 
 ```
 
-Now this `azurekeyvaultsecretsprovider-<cluster name>` managed-identity needs to be configured to access the key-vault and that can be done in  several ways.
+Now this `azurekeyvaultsecretsprovider-<cluster name>` managed-identity needs to be configured to access the key-vault and that can be done in several ways.
 
 1. Assign RBAC role to the managed-idenity to perform `get` and `list` operations in the key-vault.
 2. Create key-vault access policy to the managed-idenity to perform `get` and `list` operations in the key-vault.
 
-Let's go with creating a key-vault access policy.
+Let's proceed with creating a key-vault access policy and refer the documents mentioned at the end of this document to figure out how to do the same thing by assigning RBAC roles.
 
-This can be done using the portal,by going to the key-vault that created above.
+This can also be accomplished through the Azure portal by navigating to the previously created Key Vault.
+
 Then select **Access policies**, and create an access policy. Select `get` and `list` permissions for secrets. Now select the above created managed identity name.
 
 ![alt text](image-1.png)
@@ -135,11 +136,11 @@ You can verify from the portal,
 
 Now we need to create a trust relationship between the AKS cluster and the managed identity.
 
-In order to do that we need to have
+To do that we need to have
 1. Service account 
 2. AKS cluster OIDC issuer URL
 
-Lets obtain the AKS cluster OIDC issuer URL first.
+Let's obtain the AKS cluster OIDC issuer URL first.
 
 ```
 AKS_OIDC_ISSUER="$(az aks show --resource-group $RESOURCE_GROUP --name $CLUSTER_NAME --query "oidcIssuerProfile.issuerUrl" -o tsv)"
@@ -190,6 +191,8 @@ Verify using the portal. Go to **Managed Identities** -> Select the identity -> 
 
 ![alt text](image-3.png)
 
+This means what ever permission this managed-idenity holds, will be inherited to the kubernetes service account. A pod can access the related Azure resources by using this service account.
+
 
 ## Create the Secret Provider Class
 
@@ -222,7 +225,7 @@ EOF
 
 ## Verifying Key-vault AKS integration
 
-Now a sampel pod should be created to mount the secrets.
+Now a sample pod should be created to mount the secrets.
 
 ```
 cat <<EOF | kubectl apply -f -
@@ -255,7 +258,7 @@ spec:
 EOF
 ```
 
-Now the secret will be mounted the location specified in 'mountpath'.
+Now the secret will be mounted in the location specified in 'mountpath'.
 
 Check all the mounted components in the given path.
 
@@ -263,12 +266,15 @@ Check all the mounted components in the given path.
 kubectl exec -n $NAMESPACE busybox-secrets-store-inline-wi -- ls /mnt/secrets-store/
 ```
 
-now you may see the secretname that we mentioned in the `SecretProviderClass` resource (sample-secret).
+now you may see the secret name that we mentioned in the `SecretProviderClass` resource (sample-secret).
 
 Verify the secret content by,
 ```
 kubectl exec -n $NAMESPACE busybox-secrets-store-inline-wi -- cat /mnt/secrets-store/sample-secret
 ```
+
+![alt text](image-4.png)
+
 
 ## Clean up the resources
 
