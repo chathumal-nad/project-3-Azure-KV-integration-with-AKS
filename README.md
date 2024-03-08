@@ -1,7 +1,14 @@
 # Integrating Azure Key-Vault with AKS using Azure Key Vault provider for Secrets Store CSI Driver
 
 
-This project outlines the process of integrating Azure Key Vault with an AKS (Azure Kubernetes Service) cluster using the Azure Key Vault Provider for Secrets Store CSI Driver.
+This project outlines the process of integrating Azure Key Vault with an AKS (Azure Kubernetes Service) cluster using the Azure Key Vault Provider for Secrets Store CSI Driver. **Secrets Store CSI Driver** integrates secrets stores with Kubernetes via a Container Storage Interface (CSI) volume.
+
+The diagram below illustrates how Secrets Store CSI volume works.
+
+![alt text](image-5.png)
+
+[More details](https://secrets-store-csi-driver.sigs.k8s.io/concepts#how-it-works)
+
 
 **Table of Contents**
 - [Integrating Azure Key-Vault with AKS using Azure Key Vault provider for Secrets Store CSI Driver](#integrating-azure-key-vault-with-aks-using-azure-key-vault-provider-for-secrets-store-csi-driver)
@@ -12,6 +19,7 @@ This project outlines the process of integrating Azure Key Vault with an AKS (Az
   - [Create the Secret Provider Class](#create-the-secret-provider-class)
   - [Verifying Key-vault AKS integration](#verifying-key-vault-aks-integration)
   - [Clean up the resources](#clean-up-the-resources)
+  - [Additional Features](#additional-features)
   - [References](#references)
 
 
@@ -20,7 +28,7 @@ This project outlines the process of integrating Azure Key Vault with an AKS (Az
 > Please note that all the following commands are designed for the Bash shell.
 
 
-First, we need to provide the following environmant variables since they will be used on several occasions. 
+First, we need to provide the following environment variables since they will be used on several occasions. 
 
 
 ```
@@ -51,6 +59,10 @@ I have utilized the cluster creation to keep a very low cluster cost, so there m
 az aks create --name $CLUSTER_NAME -g $RESOURCE_GROUP  --tier free --node-count 1 --node-vm-size Standard_B2s --enable-oidc-issuer  --network-plugin azure --load-balancer-sku basic --node-osdisk-size 30  --tags "owner=az-cli" --no-wait --enable-addons azure-keyvault-secrets-provider  --enable-workload-identity 
 ```
 
+:point_right:  Without enabling the add-on it is possible to install the Secret Store CSI Driver using helm. Refer [here](https://secrets-store-csi-driver.sigs.k8s.io/getting-started/installation#installation).
+
+
+
 Retrieve cluster credentials and use the kubelogin plugin for cluster authentication.
 
 ```
@@ -67,6 +79,8 @@ kubectl get nodes
 
 kubectl get pods -A
 ```
+
+[Verify CSI Driver installation using this command](https://learn.microsoft.com/en-us/azure/aks/csi-secrets-store-driver#verify-the-azure-key-vault-provider-for-secrets-store-csi-driver-installation)
 
 
 ## Azure Key Vault creation
@@ -97,7 +111,6 @@ We can create a separate managed identity without using the automatically create
 IDENTITY_NAME="azurekeyvaultsecretsprovider-$CLUSTER_NAME"
 
 az identity create --name $IDENTITY_NAME --resource-group $RESOURCE_GROUP
-
 ```
 
 Now this `azurekeyvaultsecretsprovider-<cluster name>` managed-identity needs to be configured to access the key-vault and that can be done in several ways.
@@ -283,9 +296,16 @@ az aks delete --name $CLUSTER_NAME  --resource-group $RESOURCE_GROUP --no-wait
 az group delete -n $RESOURCE_GROUP --no-wait
 ```
 
+## Additional Features
+
+Refer the given links to enable the following features
+
+1. [Sync as Kubernetes Secret](https://secrets-store-csi-driver.sigs.k8s.io/topics/sync-as-kubernetes-secret#sync-as-kubernetes-secret)
+2. [Secret auto rotation](https://secrets-store-csi-driver.sigs.k8s.io/topics/secret-auto-rotation)
 
 ## References
 
 - [AZ CLI documentation](https://learn.microsoft.com/en-us/cli/azure/reference-index?view=azure-cli-latest)
 - [Azure official documentation to implement CSI secrets store driver](https://learn.microsoft.com/en-us/azure/aks/csi-secrets-store-driver)
 - [Abishek Weeramalla - YouTube tutorial](https://www.youtube.com/watch?v=MJ97ZInCXgY&list=PLdpzxOOAlwvIcxgCUyBHVOcWs0Krjx9xR&index=21&pp=iAQB)
+- [Secrets Store Documentation](https://secrets-store-csi-driver.sigs.k8s.io/introduction)
