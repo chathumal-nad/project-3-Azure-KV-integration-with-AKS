@@ -5,7 +5,7 @@ This project outlines the process of integrating Azure Key Vault with an AKS (Az
 
 The diagram below illustrates how Secrets Store CSI volume works.
 
-![alt text](image-5.png)
+![alt text](images/image-5.png)
 
 [More details](https://secrets-store-csi-driver.sigs.k8s.io/concepts#how-it-works)
 
@@ -99,7 +99,7 @@ az keyvault secret set --name sample-secret --vault-name $KEY_VAULT_NAME --value
 ```
 
 
-![alt text](image.png)
+![alt text](images/image.png)
 
 ## Granting access to managed identity.
 
@@ -124,7 +124,7 @@ This can also be accomplished through the Azure portal by navigating to the prev
 
 Then select **Access policies**, and create an access policy. Select `get` and `list` permissions for secrets. Now select the above created managed identity name.
 
-![alt text](image-1.png)
+![alt text](images/image-1.png)
 
 To do this process using CLI,
 
@@ -142,7 +142,7 @@ az keyvault set-policy --name $KEY_VAULT_NAME --secret-permissions get list -g $
 
 You can verify from the portal,
 
-![alt text](image-2.png)
+![alt text](images/image-2.png)
 
 
  ## Setup Federation
@@ -202,7 +202,7 @@ az identity federated-credential create --name $FEDERATED_IDENTITY_NAME --identi
 
 Verify using the portal. Go to **Managed Identities** -> Select the identity -> **Federated credentials**
 
-![alt text](image-3.png)
+![alt text](images/image-3.png)
 
 This means what ever permission this managed-idenity holds, will be inherited to the kubernetes service account. A pod can access the related Azure resources by using this service account.
 
@@ -286,7 +286,7 @@ Verify the secret content by,
 kubectl exec -n $NAMESPACE busybox-secrets-store-inline-wi -- cat /mnt/secrets-store/sample-secret
 ```
 
-![alt text](image-4.png)
+![alt text](images/image-4.png)
 
 
 ## Clean up the resources
